@@ -130,6 +130,15 @@ func newExecuteMessageTx(t helpers.Testing, destChain *dsl.Chain, executor *user
 	return tx
 }
 
+func newFakeExecuteMessageTx(t helpers.Testing, executor *userWithKeys, destChain *dsl.Chain, id inbox.Identifier) *types.Transaction {
+	inboxContract, err := inbox.NewInbox(predeploys.CrossL2InboxAddr, destChain.SequencerEngine.EthClient())
+	require.NoError(t, err)
+	auth := newL2TxOpts(t, executor.secret, destChain)
+	tx, err := inboxContract.ValidateMessage(auth, id, crypto.Keccak256Hash([]byte("fake message")))
+	require.NoError(t, err)
+	return tx
+}
+
 func idForTx(t helpers.Testing, tx *types.Transaction, srcChain *dsl.Chain) inbox.Identifier {
 	receipt, err := srcChain.SequencerEngine.EthClient().TransactionReceipt(t.Ctx(), tx.Hash())
 	require.NoError(t, err)
