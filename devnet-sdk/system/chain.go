@@ -22,7 +22,8 @@ import (
 
 var (
 	// This will make sure that we implement the Chain interface
-	_ Chain = (*chain)(nil)
+	_ Chain   = (*chain)(nil)
+	_ L2Chain = (*l2Chain)(nil)
 )
 
 // clientManager handles ethclient connections
@@ -106,13 +107,13 @@ func (m *clientManager) GethClient(rpcURL string) (*ethclient.Client, error) {
 type chain struct {
 	id          string
 	rpcUrl      string
-	users       map[string]Wallet
+	users       WalletMap
 	clients     *clientManager
 	registry    interfaces.ContractsRegistry
 	mu          sync.Mutex
 	node        Node
 	chainConfig *params.ChainConfig
-	addresses   descriptors.AddressMap
+	addresses   AddressMap
 }
 
 func (c *chain) Node() Node {
@@ -125,20 +126,6 @@ func (c *chain) Client() (*sources.EthClient, error) {
 
 func (c *chain) GethClient() (*ethclient.Client, error) {
 	return c.clients.GethClient(c.rpcUrl)
-}
-
-func newChain(chainID string, rpcUrl string, users map[string]Wallet, chainConfig *params.ChainConfig, addresses descriptors.AddressMap) *chain {
-	clients := newClientManager()
-	chain := &chain{
-		id:          chainID,
-		rpcUrl:      rpcUrl,
-		users:       users,
-		clients:     clients,
-		node:        newNode(rpcUrl, clients),
-		chainConfig: chainConfig,
-		addresses:   addresses,
-	}
-	return chain
 }
 
 func (c *chain) ContractsRegistry() interfaces.ContractsRegistry {
@@ -165,14 +152,8 @@ func (c *chain) RPCURL() string {
 // error.
 // Typically this will be one of the pre-funded wallets associated with
 // the deployed system.
-func (c *chain) Wallets(ctx context.Context) ([]Wallet, error) {
-	wallets := []Wallet{}
-
-	for _, user := range c.users {
-		wallets = append(wallets, user)
-	}
-
-	return wallets, nil
+func (c *chain) Wallets() WalletMap {
+	return c.users
 }
 
 func (c *chain) ID() types.ChainID {
@@ -220,16 +201,46 @@ func (c *chain) Config() (*params.ChainConfig, error) {
 	return c.chainConfig, nil
 }
 
-func (c *chain) Addresses() descriptors.AddressMap {
-	return c.addresses
-}
-
-func chainFromDescriptor(d *descriptors.Chain) (Chain, error) {
+func newChainFromDescriptor(d *descriptors.Chain) (Chain, error) {
 	// TODO: handle incorrect descriptors better. We could panic here.
 	firstNodeRPC := d.Nodes[0].Services["el"].Endpoints["rpc"]
 	rpcURL := fmt.Sprintf("http://%s:%d", firstNodeRPC.Host, firstNodeRPC.Port)
 
-	c := newChain(d.ID, rpcURL, nil, d.Config, d.Addresses) // Create chain first
+	c := newChain(d.ID, rpcURL, nil, d.Config, AddressMap(d.Addresses)) // Create chain first
+
+	users, err := newWalletMapFromDescriptorWalletMap(d.Wallets, c)
+	if err != nil {
+		return nil, err
+	}
+	c.users = users
+
+	return c, nil
+}
+
+func newChain(chainID string, rpcUrl string, users map[string]Wallet, chainConfig *params.ChainConfig, addresses AddressMap) *chain {
+	clients := newClientManager()
+	chain := &chain{
+		id:          chainID,
+		rpcUrl:      rpcUrl,
+		users:       users,
+		clients:     clients,
+		node:        newNode(rpcUrl, clients),
+		chainConfig: chainConfig,
+		addresses:   addresses,
+	}
+	return chain
+}
+
+func (c *chain) Addresses() AddressMap {
+	return c.addresses
+}
+
+func newL2ChainFromDescriptor(d *descriptors.L2Chain) (L2Chain, error) {
+	// TODO: handle incorrect descriptors better. We could panic here.
+	firstNodeRPC := d.Nodes[0].Services["el"].Endpoints["rpc"]
+	rpcURL := fmt.Sprintf("http://%s:%d", firstNodeRPC.Host, firstNodeRPC.Port)
+
+	c := newL2Chain(d.ID, rpcURL, nil, nil, d.Config, AddressMap(d.L1Addresses), AddressMap(d.Addresses)) // Create chain first
 
 	users := make(map[string]Wallet)
 	for key, w := range d.Wallets {
@@ -245,4 +256,35 @@ func chainFromDescriptor(d *descriptors.Chain) (Chain, error) {
 	c.users = users // Set users after creation
 
 	return c, nil
+}
+
+func newL2Chain(chainID string, rpcUrl string, l1Users WalletMap, l2Users WalletMap, chainConfig *params.ChainConfig, l1Addresses AddressMap, l2Addresses AddressMap) *l2Chain {
+	clients := newClientManager()
+	chain := &l2Chain{
+		chain: chain{
+			id:          chainID,
+			rpcUrl:      rpcUrl,
+			users:       l2Users,
+			clients:     clients,
+			node:        newNode(rpcUrl, clients),
+			chainConfig: chainConfig,
+		},
+		l1Addresses: l1Addresses,
+		l1Users:     l1Users,
+	}
+	return chain
+}
+
+type l2Chain struct {
+	chain
+	l1Addresses AddressMap
+	l1Users     WalletMap
+}
+
+func (c *l2Chain) L1Addresses() AddressMap {
+	return c.l1Addresses
+}
+
+func (c *l2Chain) L1Wallets() WalletMap {
+	return c.l1Users
 }

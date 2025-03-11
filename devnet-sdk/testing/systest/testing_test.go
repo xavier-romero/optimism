@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/devnet-sdk/descriptors"
 	"github.com/ethereum-optimism/optimism/devnet-sdk/interfaces"
 	"github.com/ethereum-optimism/optimism/devnet-sdk/shell/env"
 	"github.com/ethereum-optimism/optimism/devnet-sdk/system"
@@ -20,7 +19,8 @@ import (
 )
 
 var (
-	_ system.Chain = (*mockChain)(nil)
+	_ system.Chain   = (*mockChain)(nil)
+	_ system.L2Chain = (*mockL2Chain)(nil)
 )
 
 // mockTB implements a minimal testing.TB for testing
@@ -87,8 +87,8 @@ func (m *mockChain) Client() (*sources.EthClient, error)             { return ni
 func (m *mockChain) GethClient() (*ethclient.Client, error)          { return nil, nil }
 func (m *mockChain) ID() types.ChainID                               { return types.ChainID(big.NewInt(1)) }
 func (m *mockChain) ContractsRegistry() interfaces.ContractsRegistry { return nil }
-func (m *mockChain) Wallets(ctx context.Context) ([]system.Wallet, error) {
-	return nil, nil
+func (m *mockChain) Wallets() system.WalletMap {
+	return nil
 }
 func (m *mockChain) GasPrice(ctx context.Context) (*big.Int, error) {
 	return big.NewInt(1), nil
@@ -105,22 +105,58 @@ func (m *mockChain) SupportsEIP(ctx context.Context, eip uint64) bool {
 func (m *mockChain) Config() (*params.ChainConfig, error) {
 	return nil, fmt.Errorf("not implemented on mockChain")
 }
-func (m *mockChain) Addresses() descriptors.AddressMap {
-	return descriptors.AddressMap{}
+func (m *mockChain) Addresses() system.AddressMap {
+	return system.AddressMap{}
+}
+
+// mockL2Chain implements a minimal system.L2Chain for testing
+type mockL2Chain struct{}
+
+func (m *mockL2Chain) Node() system.Node                               { return nil }
+func (m *mockL2Chain) RPCURL() string                                  { return "http://localhost:8545" }
+func (m *mockL2Chain) Client() (*ethclient.Client, error)              { return ethclient.Dial(m.RPCURL()) }
+func (m *mockL2Chain) ID() types.ChainID                               { return types.ChainID(big.NewInt(1)) }
+func (m *mockL2Chain) ContractsRegistry() interfaces.ContractsRegistry { return nil }
+func (m *mockL2Chain) Wallets() system.WalletMap {
+	return nil
+}
+func (m *mockL2Chain) GasPrice(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(1), nil
+}
+func (m *mockL2Chain) GasLimit(ctx context.Context, tx system.TransactionData) (uint64, error) {
+	return 1000000, nil
+}
+func (m *mockL2Chain) PendingNonceAt(ctx context.Context, address common.Address) (uint64, error) {
+	return 0, nil
+}
+func (m *mockL2Chain) SupportsEIP(ctx context.Context, eip uint64) bool {
+	return true
+}
+func (m *mockL2Chain) Config() (*params.ChainConfig, error) {
+	return nil, fmt.Errorf("not implemented on mockChain")
+}
+func (m *mockL2Chain) L1Addresses() system.AddressMap {
+	return system.AddressMap{}
+}
+func (m *mockL2Chain) L1Wallets() system.WalletMap {
+	return system.WalletMap{}
+}
+func (m *mockL2Chain) Addresses() system.AddressMap {
+	return system.AddressMap{}
 }
 
 // mockSystem implements a minimal system.System for testing
 type mockSystem struct{}
 
-func (m *mockSystem) Identifier() string  { return "mock" }
-func (m *mockSystem) L1() system.Chain    { return &mockChain{} }
-func (m *mockSystem) L2s() []system.Chain { return []system.Chain{&mockChain{}} }
-func (m *mockSystem) Close() error        { return nil }
+func (m *mockSystem) Identifier() string    { return "mock" }
+func (m *mockSystem) L1() system.Chain      { return &mockChain{} }
+func (m *mockSystem) L2s() []system.L2Chain { return []system.L2Chain{&mockL2Chain{}} }
+func (m *mockSystem) Close() error          { return nil }
 
 // mockInteropSet implements a minimal system.InteropSet for testing
 type mockInteropSet struct{}
 
-func (m *mockInteropSet) L2s() []system.Chain { return []system.Chain{&mockChain{}} }
+func (m *mockInteropSet) L2s() []system.L2Chain { return []system.L2Chain{&mockL2Chain{}} }
 
 // mockInteropSystem implements a minimal system.InteropSystem for testing
 type mockInteropSystem struct {

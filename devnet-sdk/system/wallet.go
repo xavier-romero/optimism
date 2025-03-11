@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum-optimism/optimism/devnet-sdk/descriptors"
 	"github.com/ethereum-optimism/optimism/devnet-sdk/types"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
@@ -34,7 +35,19 @@ type wallet struct {
 	chain      internalChain
 }
 
-func newWallet(pk string, addr types.Address, chain *chain) (*wallet, error) {
+func newWalletMapFromDescriptorWalletMap(descriptorWalletMap descriptors.WalletMap, chain internalChain) (map[string]Wallet, error) {
+	result := map[string]Wallet{}
+	for k, v := range descriptorWalletMap {
+		wallet, err := newWallet(v.PrivateKey, v.Address, chain)
+		if err != nil {
+			return nil, err
+		}
+		result[k] = wallet
+	}
+	return result, nil
+}
+
+func newWallet(pk string, addr types.Address, chain internalChain) (*wallet, error) {
 	privateKey, err := privateKeyFromString(pk)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert private from string: %w", err)

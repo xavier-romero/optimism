@@ -285,13 +285,16 @@ func TestGetEnvironmentInfo(t *testing.T) {
 							},
 						},
 						JWT: testJWTs.L1JWT,
+						// TODO: set this
 					},
-					L2: []*descriptors.Chain{
+					L2: []*descriptors.L2Chain{
 						{
-							Name:     "op-kurtosis",
-							ID:       "1234",
-							Services: make(descriptors.ServiceMap),
-							JWT:      testJWTs.L2JWT,
+							Chain: descriptors.Chain{
+								Name:     "op-kurtosis",
+								ID:       "1234",
+								Services: make(descriptors.ServiceMap),
+								JWT:      testJWTs.L2JWT,
+							},
 						},
 					},
 				},

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/devnet-sdk/contracts/registry/empty"
-	"github.com/ethereum-optimism/optimism/devnet-sdk/descriptors"
 	"github.com/ethereum-optimism/optimism/devnet-sdk/interfaces"
 	"github.com/ethereum-optimism/optimism/devnet-sdk/system"
 	"github.com/ethereum-optimism/optimism/devnet-sdk/testing/systest"
@@ -29,7 +28,7 @@ var (
 	_ system.Wallet = (*mockFailingWallet)(nil)
 
 	// Ensure mockFailingChain implements Chain
-	_ system.Chain = (*mockFailingChain)(nil)
+	_ system.Chain = (*mockFailingL1Chain)(nil)
 )
 
 // mockFailingTx implements types.WriteInvocation[any] that always fails
@@ -122,52 +121,103 @@ func (r *mockContractsRegistry) SuperchainWETH(address types.Address) (interface
 }
 
 // mockFailingChain implements system.Chain with a failing SendETH
-type mockFailingChain struct {
+type mockFailingL1Chain struct {
 	id      types.ChainID
 	reg     interfaces.ContractsRegistry
-	wallets []system.Wallet
+	wallets system.WalletMap
 }
 
-var _ system.Chain = (*mockFailingChain)(nil)
+var _ system.Chain = (*mockFailingL1Chain)(nil)
 
-func newMockFailingChain(id types.ChainID, wallets []system.Wallet) *mockFailingChain {
-	return &mockFailingChain{
+func newMockFailingL1Chain(id types.ChainID, wallets system.WalletMap) *mockFailingL1Chain {
+	return &mockFailingL1Chain{
 		id:      id,
 		reg:     &mockContractsRegistry{},
 		wallets: wallets,
 	}
 }
 
-func (m *mockFailingChain) Node() system.Node                  { return nil }
-func (m *mockFailingChain) RPCURL() string                     { return "mock://failing" }
-func (m *mockFailingChain) Client() (*ethclient.Client, error) { return ethclient.Dial(m.RPCURL()) }
-func (m *mockFailingChain) ID() types.ChainID                  { return m.id }
-func (m *mockFailingChain) Wallets(ctx context.Context) ([]system.Wallet, error) {
-	return m.wallets, nil
+func (m *mockFailingL1Chain) Node() system.Node                  { return nil }
+func (m *mockFailingL1Chain) RPCURL() string                     { return "mock://failing" }
+func (m *mockFailingL1Chain) Client() (*ethclient.Client, error) { return ethclient.Dial(m.RPCURL()) }
+func (m *mockFailingL1Chain) ID() types.ChainID                  { return m.id }
+func (m *mockFailingL1Chain) Wallets() system.WalletMap {
+	return m.wallets
 }
-func (m *mockFailingChain) ContractsRegistry() interfaces.ContractsRegistry { return m.reg }
-func (m *mockFailingChain) GasPrice(ctx context.Context) (*big.Int, error) {
+func (m *mockFailingL1Chain) ContractsRegistry() interfaces.ContractsRegistry { return m.reg }
+func (m *mockFailingL1Chain) GasPrice(ctx context.Context) (*big.Int, error) {
 	return big.NewInt(1), nil
 }
-func (m *mockFailingChain) GasLimit(ctx context.Context, tx system.TransactionData) (uint64, error) {
+func (m *mockFailingL1Chain) GasLimit(ctx context.Context, tx system.TransactionData) (uint64, error) {
 	return 1000000, nil
 }
-func (m *mockFailingChain) PendingNonceAt(ctx context.Context, address common.Address) (uint64, error) {
+func (m *mockFailingL1Chain) PendingNonceAt(ctx context.Context, address common.Address) (uint64, error) {
 	return 0, nil
 }
-func (m *mockFailingChain) SupportsEIP(ctx context.Context, eip uint64) bool {
+func (m *mockFailingL1Chain) SupportsEIP(ctx context.Context, eip uint64) bool {
 	return true
 }
-func (m *mockFailingChain) Config() (*params.ChainConfig, error) {
+func (m *mockFailingL1Chain) Config() (*params.ChainConfig, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockFailingChain) Addresses() descriptors.AddressMap {
+func (m *mockFailingL1Chain) Addresses() system.AddressMap {
 	return map[string]common.Address{}
+}
+
+// mockFailingChain implements system.Chain with a failing SendETH
+type mockFailingL2Chain struct {
+	id      types.ChainID
+	reg     interfaces.ContractsRegistry
+	wallets system.WalletMap
+}
+
+var _ system.L2Chain = (*mockFailingL2Chain)(nil)
+
+func newMockFailingL2Chain(id types.ChainID, wallets system.WalletMap) *mockFailingL2Chain {
+	return &mockFailingL2Chain{
+		id:      id,
+		reg:     &mockContractsRegistry{},
+		wallets: wallets,
+	}
+}
+
+func (m *mockFailingL2Chain) Node() system.Node                  { return nil }
+func (m *mockFailingL2Chain) RPCURL() string                     { return "mock://failing" }
+func (m *mockFailingL2Chain) Client() (*ethclient.Client, error) { return ethclient.Dial(m.RPCURL()) }
+func (m *mockFailingL2Chain) ID() types.ChainID                  { return m.id }
+func (m *mockFailingL2Chain) Wallets() system.WalletMap {
+	return m.wallets
+}
+func (m *mockFailingL2Chain) ContractsRegistry() interfaces.ContractsRegistry { return m.reg }
+func (m *mockFailingL2Chain) GasPrice(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(1), nil
+}
+func (m *mockFailingL2Chain) GasLimit(ctx context.Context, tx system.TransactionData) (uint64, error) {
+	return 1000000, nil
+}
+func (m *mockFailingL2Chain) PendingNonceAt(ctx context.Context, address common.Address) (uint64, error) {
+	return 0, nil
+}
+func (m *mockFailingL2Chain) SupportsEIP(ctx context.Context, eip uint64) bool {
+	return true
+}
+func (m *mockFailingL2Chain) Config() (*params.ChainConfig, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+func (m *mockFailingL2Chain) L1Addresses() system.AddressMap {
+	return map[string]common.Address{}
+}
+func (m *mockFailingL2Chain) Addresses() system.AddressMap {
+	return map[string]common.Address{}
+}
+func (m *mockFailingL2Chain) L1Wallets() system.WalletMap {
+	return map[string]system.Wallet{}
 }
 
 // mockFailingSystem implements system.System
 type mockFailingSystem struct {
-	chain system.Chain
+	l1Chain system.Chain
+	l2Chain system.L2Chain
 }
 
 func (m *mockFailingSystem) Identifier() string {
@@ -175,11 +225,11 @@ func (m *mockFailingSystem) Identifier() string {
 }
 
 func (m *mockFailingSystem) L1() system.Chain {
-	return nil // We don't need L1 for this test
+	return m.l1Chain
 }
 
-func (m *mockFailingSystem) L2s() []system.Chain {
-	return []system.Chain{m.chain}
+func (m *mockFailingSystem) L2s() []system.L2Chain {
+	return []system.L2Chain{m.l2Chain}
 }
 
 func (m *mockFailingSystem) Close() error {
