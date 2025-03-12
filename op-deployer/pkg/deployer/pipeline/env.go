@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 
@@ -69,6 +70,53 @@ func ReadState(workdir string) (*state.State, error) {
 
 func WriteState(workdir string, st *state.State) error {
 	statePath := path.Join(workdir, "state.json")
+	if st.PredeployedMap != nil {
+		fmt.Println("Saving state to: ", statePath, "with predeployed map")
+		for _, chain := range st.Chains {
+			// allocsMap will host all the addresses
+			var allocsMap = make(map[string]state.PredeployedEntry)
+
+			// if the chain has allocs, we need to add them to the allocsMap
+			if chain.Allocs != nil {
+				allocsData, err := json.Marshal(chain.Allocs.Data)
+				if err != nil {
+					return fmt.Errorf("failed to marshal allocs data: %w", err)
+				}
+				var forgeAllocs foundry.ForgeAllocs
+				err = json.Unmarshal(allocsData, &forgeAllocs)
+				if err != nil {
+					return fmt.Errorf("failed to unmarshal allocs: %w", err)
+				}
+
+				err = json.Unmarshal(allocsData, &allocsMap)
+				if err != nil {
+					return fmt.Errorf("failed to unmarshal allocs: %w", err)
+				}
+			}
+
+			// add the predeployed addresses to the allocsMap
+			for k, v := range st.PredeployedMap {
+				// check the key does not exist in allocsMap
+				if _, ok := allocsMap[k]; !ok {
+					allocsMap[k] = v
+					fmt.Println("Adding predeployed address:", k)
+				}
+			}
+
+			new_allocs, err := json.Marshal(allocsMap)
+			if err != nil {
+				return fmt.Errorf("failed to marshal allocs: %w", err)
+			}
+
+			var fallocs foundry.ForgeAllocs
+			if err := json.Unmarshal(new_allocs, &fallocs); err != nil {
+				return fmt.Errorf("failed to unmarshal allocs data: %w", err)
+			}
+			chain.Allocs = &state.GzipData[foundry.ForgeAllocs]{
+				Data: &fallocs,
+			}
+		}
+	}
 	return st.WriteToFile(statePath)
 }
 

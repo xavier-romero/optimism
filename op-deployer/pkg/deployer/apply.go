@@ -3,8 +3,10 @@ package deployer
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/foundry"
@@ -37,6 +39,7 @@ type ApplyConfig struct {
 	PrivateKey       string
 	DeploymentTarget DeploymentTarget
 	Logger           log.Logger
+	PredeployedFile  string
 
 	privateKeyECDSA *ecdsa.PrivateKey
 }
@@ -80,6 +83,7 @@ func ApplyCLI() func(cliCtx *cli.Context) error {
 		l1RPCUrl := cliCtx.String(L1RPCURLFlagName)
 		workdir := cliCtx.String(WorkdirFlagName)
 		privateKey := cliCtx.String(PrivateKeyFlagName)
+		predeployedFile := cliCtx.String(PredeployedFileFlagName)
 		depTarget, err := NewDeploymentTarget(cliCtx.String(DeploymentTargetFlag.Name))
 		if err != nil {
 			return fmt.Errorf("failed to parse deployment target: %w", err)
@@ -93,6 +97,7 @@ func ApplyCLI() func(cliCtx *cli.Context) error {
 			PrivateKey:       privateKey,
 			DeploymentTarget: depTarget,
 			Logger:           l,
+			PredeployedFile:    predeployedFile,
 		})
 	}
 }
@@ -120,6 +125,7 @@ func Apply(ctx context.Context, cfg ApplyConfig) error {
 		State:              st,
 		Logger:             cfg.Logger,
 		StateWriter:        pipeline.WorkdirStateWriter(cfg.Workdir),
+		PredeployedFile:    cfg.PredeployedFile,
 	}); err != nil {
 		return err
 	}
@@ -140,6 +146,7 @@ type ApplyPipelineOpts struct {
 	State              *state.State
 	Logger             log.Logger
 	StateWriter        pipeline.StateWriter
+	PredeployedFile    string
 }
 
 func ApplyPipeline(
@@ -288,6 +295,18 @@ func ApplyPipeline(
 		return fmt.Errorf("invalid deployment target: '%s'", opts.DeploymentTarget)
 	}
 
+	var preDeployedMap map[string]state.PredeployedEntry
+	if opts.PredeployedFile != "" {
+		fmt.Println("Reading predeployed file:", opts.PredeployedFile)
+		var err error
+		preDeployedMap, err = readPredeployedFile(opts.PredeployedFile)
+		if err != nil {
+			return fmt.Errorf("failed to read predeployed file: %w", err)
+		}
+	} else {
+		fmt.Println("No predeployed file provided, skipping")
+	}
+
 	pEnv := &pipeline.Env{
 		StateWriter:  opts.StateWriter,
 		L1ScriptHost: l1Host,
@@ -387,9 +406,24 @@ func ApplyPipeline(
 	}
 
 	st.AppliedIntent = intent
+	st.PredeployedMap = preDeployedMap
 	if err := pEnv.StateWriter.WriteState(st); err != nil {
 		return fmt.Errorf("failed to write state: %w", err)
 	}
 
 	return nil
+}
+
+func readPredeployedFile(path string) (map[string]state.PredeployedEntry, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read predeployed file: %w", err)
+	}
+
+	var entries map[string]state.PredeployedEntry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, fmt.Errorf("failed to parse predeployed file: %w", err)
+	}
+
+	return entries, nil
 }
