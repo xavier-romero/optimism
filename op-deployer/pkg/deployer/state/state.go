@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/ioutil"
 	"github.com/ethereum-optimism/optimism/op-service/jsonutil"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 // State contains the data needed to recreate the deployment
@@ -46,6 +47,8 @@ type State struct {
 	// DeploymentCalldata contains the calldata of each transaction in the deployment. This is only
 	// populated if apply is called with --deployment-target=calldata.
 	DeploymentCalldata []broadcaster.CalldataDump
+
+	PredeployedMap map[string]PredeployedEntry `json:"predeployedMap"`
 }
 
 func (s *State) WriteToFile(path string) error {
@@ -116,4 +119,11 @@ type ChainState struct {
 	Allocs *GzipData[foundry.ForgeAllocs] `json:"allocs"`
 
 	StartBlock *types.Header `json:"startBlock"`
+}
+
+type PredeployedEntry struct {
+	Balance      string              `json:"balance"`
+	Nonce        string            `json:"nonce,omitempty"`
+	Code     hexutil.Bytes             `json:"code,omitempty"`
+	Storage      map[common.Hash]common.Hash `json:"storage,omitempty"`
 }

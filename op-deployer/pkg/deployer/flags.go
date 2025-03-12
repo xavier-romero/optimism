@@ -20,6 +20,7 @@ const (
 	OutdirFlagName           = "outdir"
 	PrivateKeyFlagName       = "private-key"
 	IntentConfigTypeFlagName = "intent-config-type"
+	PredeployedFileFlagName  = "predeployed-file"
 )
 
 type DeploymentTarget string
@@ -97,6 +98,11 @@ var (
 		EnvVars: PrefixEnvVar("INTENT_CONFIG_TYPE"),
 		Value:   string(state.IntentConfigTypeStandard),
 	}
+	PredeployedFileFlag = &cli.StringFlag{
+		Name:    PredeployedFileFlagName,
+		Usage:   "filepath of predeployed file for command",
+		EnvVars: PrefixEnvVar("PREDEPLOYED_FILE"),
+	}
 )
 
 var GlobalFlags = append([]cli.Flag{}, oplog.CLIFlags(EnvVarPrefix)...)
@@ -113,6 +119,7 @@ var ApplyFlags = []cli.Flag{
 	WorkdirFlag,
 	PrivateKeyFlag,
 	DeploymentTargetFlag,
+	PredeployedFileFlag,
 }
 
 var UpgradeFlags = []cli.Flag{
