@@ -514,13 +514,13 @@ func (s *interopE2ESystem) ValidateMessage(
 ) (*types.Receipt, error) {
 	secret := s.UserKey(id, sender)
 	auth, err := bind.NewKeyedTransactorWithChainID(&secret, s.l2s[id].chainID)
+	contract := s.Contract(id, "inbox").(*inbox.Inbox)
 
 	require.NoError(s.t, err)
 
 	auth.GasLimit = uint64(3000_000)
 	auth.GasPrice = big.NewInt(20_000_000_000)
 
-	contract := s.Contract(id, "inbox").(*inbox.Inbox)
 	identifier := inbox.Identifier{
 		Origin:      msgIdentifier.Origin,
 		BlockNumber: new(big.Int).SetUint64(msgIdentifier.BlockNumber),
@@ -528,6 +528,20 @@ func (s *interopE2ESystem) ValidateMessage(
 		Timestamp:   new(big.Int).SetUint64(msgIdentifier.Timestamp),
 		ChainId:     msgIdentifier.ChainID.ToBig(),
 	}
+	access := supervisortypes.ChecksumArgs{
+		BlockNumber: msgIdentifier.BlockNumber,
+		Timestamp:   msgIdentifier.Timestamp,
+		LogIndex:    msgIdentifier.LogIndex,
+		ChainID:     msgIdentifier.ChainID,
+		LogHash:     msgHash,
+	}.Access()
+	auth.AccessList = []types.AccessTuple{
+		{
+			Address:     predeploys.CrossL2InboxAddr,
+			StorageKeys: supervisortypes.EncodeAccessList([]supervisortypes.Access{access}),
+		},
+	}
+
 	tx, err := contract.InboxTransactor.ValidateMessage(auth, identifier, msgHash)
 	if expectedError != nil {
 		require.ErrorContains(s.t, err, expectedError.Error())

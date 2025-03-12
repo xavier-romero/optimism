@@ -247,10 +247,6 @@ func TestInteropBlockBuilding(t *testing.T) {
 	logger := testlog.Logger(t, log.LevelInfo)
 	oplog.SetGlobalLogHandler(logger.Handler())
 
-	// TODO(14697): re-enable once op-geth block-building uses access-lists.
-	// When re-enabling, the txs that execute other messages will need access-lists.
-	t.Skip("blocked by issue #14697")
-
 	test := func(t *testing.T, s2 SuperSystem) {
 		ids := s2.L2IDs()
 		chainA := ids[0]
