@@ -60,6 +60,9 @@ func (eq *EngDeriver) onBuildSeal(ev BuildSealEvent) {
 
 	sealingStart := time.Now()
 	envelope, err := eq.ec.engine.GetPayload(ctx, ev.Info)
+	if envelope.ExecutionPayload.WithdrawalsRoot == nil {
+		panic("withdrawals root is nil")
+	}
 	if err != nil {
 		var rpcErr rpc.Error
 		if errors.As(err, &rpcErr) && eth.ErrorCode(rpcErr.ErrorCode()) == eth.UnknownPayload {
